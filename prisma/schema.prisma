@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "cockroachdb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String       @id @default(uuid()) @db.Uuid
+  username      String       @unique
+  email         String       @unique
+  passwordHash  String
+  dateOfBirth   DateTime
+  isContributor Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  contributor   Contributor?
+}
+
+model Contributor {
+  id                String         @id @default(uuid()) @db.Uuid
+  bio               String?
+  telegramId        String?
+  contributionCount Int            @default(0)
+  status            String         @default("Pending")
+  approvalDate      DateTime?
+  reviewedByAdmin   String?        @db.Uuid
+  userId            String         @unique @db.Uuid
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  user              User           @relation(fields: [userId], references: [id])
+  platformLinks     PlatformLink[]
+  verificationPhrase String       @unique 
+}
+
+model PlatformLink {
+  id            String      @id @default(uuid()) @db.Uuid
+  platform      String
+  url           String
+  contributorId String      @db.Uuid
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  contributor   Contributor @relation(fields: [contributorId], references: [id])
+}
