@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-import bcrypt from 'bcryptjs'
-
-const prisma = new PrismaClient()
+import { hash } from 'bcryptjs'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(request: Request) {
   try {
@@ -118,15 +116,14 @@ export async function POST(request: Request) {
     }
 
     // Hash the password
-    const salt = await bcrypt.genSalt(10)
-    const passwordHash = await bcrypt.hash(password, salt)
+    const hashedPassword = await hash(password, 12)
 
     // Create user
     const user = await prisma.user.create({
       data: {
         username,
         email,
-        passwordHash,
+        passwordHash: hashedPassword,
         dateOfBirth: new Date(dob),
         isContributor: wantContributor || false,
       }
@@ -169,7 +166,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { 
         success: false, 
-        message: error.message || 'Registration failed' 
+        message: error.message || 'Failed to register user' 
       },
       { status: 500 }
     )
