@@ -1,10 +1,17 @@
 import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { ChevronRight, ThumbsUp, Flag, Share2, Reply } from "lucide-react"
 
-export default function ThreadPage({ params }) {
+interface ThreadPageProps {
+  params: {
+    id: string;
+  };
+}
+
+export default function ThreadPage({ params }: ThreadPageProps) {
   const { id } = params
 
   // This would be replaced with actual data fetching
@@ -62,6 +69,7 @@ export default function ThreadPage({ params }) {
         likes: 3,
       },
     ],
+    views: 120,
   }
 
   // Add more mock replies
@@ -198,6 +206,17 @@ export default function ThreadPage({ params }) {
             </Card>
           ))}
         </div>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-4">
+                <Badge variant="outline">{thread.replies.length} replies</Badge>
+                <Badge variant="outline">{thread.views} views</Badge>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
       </div>
     </div>
   )

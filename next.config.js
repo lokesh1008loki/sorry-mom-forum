@@ -10,17 +10,10 @@ const nextConfig = {
       },
     ],
   },
-  experimental: {
-    serverActions: true,
-  },
   // Disable the development mode indicator
   devIndicators: {
     buildActivity: false,
     buildActivityPosition: 'bottom-right',
-  },
-  // Enable proper error handling
-  onError: (err) => {
-    console.error('Next.js error:', err);
   },
   // Enable proper page reloading
   webpack: (config, { dev, isServer }) => {
