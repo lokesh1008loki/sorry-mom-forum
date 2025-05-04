@@ -14,10 +14,8 @@ import { toast } from "sonner"
 import Link from 'next/link'
 import bcrypt from 'bcryptjs'
 import { useRouter } from 'next/navigation'
-import { PrismaClient } from '@prisma/client'
 import { cn } from '@/lib/utils'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 // List of words for verification phrase
 const wordList = [
