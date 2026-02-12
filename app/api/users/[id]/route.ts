@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth-options'
 import { PrismaClient } from '@prisma/client'
 
 const typedPrisma = prisma as unknown as PrismaClient & {
@@ -12,12 +12,12 @@ const typedPrisma = prisma as unknown as PrismaClient & {
 
 export async function GET(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id } = await Promise.resolve(context.params)
-    
+    const { id } = await context.params
+
     if (!session) {
       return new NextResponse('Unauthorized', { status: 401 })
     }

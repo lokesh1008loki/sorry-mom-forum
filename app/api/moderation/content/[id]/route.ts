@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
-import { authOptions } from '../../../auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth-options'
 
 // PUT - Approve/Reject content
 export async function PUT(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions)
@@ -41,8 +41,9 @@ export async function PUT(
             )
         }
 
+        const { id } = await params
         const content = await prisma.content.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 status,
                 verifiedBy: user.id,
@@ -78,7 +79,7 @@ export async function PUT(
 // GET - Get content details
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions)
@@ -90,8 +91,9 @@ export async function GET(
             )
         }
 
+        const { id } = await params
         const content = await prisma.content.findUnique({
-            where: { id: params.id },
+            where: { id },
             include: {
                 contributor: {
                     include: {

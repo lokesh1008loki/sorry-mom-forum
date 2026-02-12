@@ -6,13 +6,13 @@ import { Badge } from "@/components/ui/badge"
 import { ChevronRight, ThumbsUp, Flag, Share2, Reply } from "lucide-react"
 
 interface ThreadPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
-export default function ThreadPage({ params }: ThreadPageProps) {
-  const { id } = params
+export default async function ThreadPage({ params }: ThreadPageProps) {
+  const { id } = await params
 
   // This would be replaced with actual data fetching
   const thread = {

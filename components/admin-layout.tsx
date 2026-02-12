@@ -15,7 +15,8 @@ import {
     Users2,
     FileText,
     Trophy,
-    Megaphone
+    Megaphone,
+    Send
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -28,6 +29,7 @@ const navigation = [
     { name: 'Staff Management', href: '/admin/staff-management', icon: Users2 },
     { name: 'Contributors', href: '/admin/contributors', icon: UserCheck },
     { name: 'Platform Links', href: '/admin/platform-links', icon: LinkIcon },
+    { name: 'Telegram Channels', href: '/admin/telegram-channels', icon: Send },
     { name: 'Content Moderation', href: '/admin/moderation', icon: Shield },
     { name: 'Activity Logs', href: '/admin/activity-logs', icon: FileText },
     { name: 'Gamification', href: '/admin/gamification', icon: Trophy },

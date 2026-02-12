@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
-import { authOptions } from '../../../auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth-options'
 import { logActivity, ActivityActions } from '@/lib/activity-logger'
 
 // GET - Get staff member details
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions)
@@ -19,8 +19,9 @@ export async function GET(
             )
         }
 
+        const { id } = await params
         const staff = await prisma.admin.findUnique({
-            where: { id: params.id },
+            where: { id },
             include: {
                 user: {
                     select: {
@@ -53,7 +54,7 @@ export async function GET(
 // PUT - Update staff member
 export async function PUT(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions)
@@ -81,8 +82,9 @@ export async function PUT(
         const data = await request.json()
         const { role, department, permissions, status } = data
 
+        const { id } = await params
         const staff = await prisma.admin.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 ...(role && { role }),
                 ...(department !== undefined && { department }),
@@ -107,7 +109,7 @@ export async function PUT(
             userId: currentUser.id,
             action: ActivityActions.UPDATE_STAFF,
             entityType: 'Admin',
-            entityId: params.id,
+            entityId: id,
             metadata: {
                 targetUsername: staff.user.username,
                 changes: { role, department, status }
@@ -127,7 +129,7 @@ export async function PUT(
 // DELETE - Remove staff member
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions)
@@ -152,8 +154,9 @@ export async function DELETE(
             )
         }
 
+        const { id } = await params
         const staff = await prisma.admin.findUnique({
-            where: { id: params.id },
+            where: { id },
             include: {
                 user: {
                     select: {
@@ -172,7 +175,7 @@ export async function DELETE(
 
         // Delete admin record
         await prisma.admin.delete({
-            where: { id: params.id }
+            where: { id }
         })
 
         // Reset user role
@@ -186,7 +189,7 @@ export async function DELETE(
             userId: currentUser.id,
             action: ActivityActions.DELETE_STAFF,
             entityType: 'Admin',
-            entityId: params.id,
+            entityId: id,
             metadata: {
                 targetUsername: staff.user.username,
                 previousRole: staff.role

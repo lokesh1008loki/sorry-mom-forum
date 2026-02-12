@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
-import { authOptions } from '../../../auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth-options'
 import bcrypt from 'bcryptjs'
 
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions)
@@ -31,8 +31,9 @@ export async function GET(
             )
         }
 
+        const { id } = await params
         const user = await prisma.user.findUnique({
-            where: { id: params.id },
+            where: { id },
             include: {
                 contributor: {
                     include: {
@@ -64,7 +65,7 @@ export async function GET(
 
 export async function PUT(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions)
@@ -92,8 +93,9 @@ export async function PUT(
         const data = await request.json()
         const { username, email, isContributor, isAdmin, isPartner, role, dateOfBirth } = data
 
+        const { id } = await params
         const updatedUser = await prisma.user.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 ...(username && { username }),
                 ...(email && { email }),
@@ -129,7 +131,7 @@ export async function PUT(
 
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions)
@@ -155,8 +157,9 @@ export async function DELETE(
         }
 
         // Delete user (cascade will handle contributor and platform links)
+        const { id } = await params
         await prisma.user.delete({
-            where: { id: params.id }
+            where: { id }
         })
 
         return NextResponse.json({ success: true })
