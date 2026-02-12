@@ -25,3 +25,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# MERN Stack additions
+.env
+.env.local
+build/
+dist/
+coverage/
+logs/
+*.log
