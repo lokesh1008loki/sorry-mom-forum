@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils"
 import { Logo } from "@/components/logo"
 import { useTranslation } from "@/contexts/language-context"
 import { useState, useEffect } from "react"
+import { LanguageSelector } from "@/components/language-selector"
+import { ThemeSelector } from "@/components/theme-selector"
 
 export function MainNav() {
   const pathname = usePathname()
@@ -104,6 +106,10 @@ export function MainNav() {
           </Link>
         ))}
       </nav>
+      <div className="flex items-center space-x-2">
+        <ThemeSelector />
+        <LanguageSelector />
+      </div>
     </div>
   )
 }

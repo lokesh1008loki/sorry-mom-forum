@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -8,39 +9,139 @@ datasource db {
 }
 
 model User {
-  id            String       @id @default(uuid()) @db.Uuid
-  username      String       @unique
-  email         String       @unique
-  passwordHash  String
-  dateOfBirth   DateTime
-  isContributor Boolean      @default(false)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  contributor   Contributor?
+  id                String       @id @default(uuid()) @db.Uuid
+  username          String       @unique
+  email             String       @unique
+  passwordHash      String
+  dateOfBirth       DateTime
+  isContributor     Boolean      @default(false)
+  isAdmin           Boolean      @default(false)
+  isPartner         Boolean      @default(false)
+  role              String       @default("user")  // user, moderator, developer, support, admin
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  contributor       Contributor?
+  admin             Admin?
+  profilePicture    String?      @db.String
+  verifiedContents  Content[]    @relation("ContentVerifier")
+  reputationPoints  Int          @default(0)
+  level             Int          @default(1)
+  badges            UserBadge[]
 }
 
 model Contributor {
-  id                String         @id @default(uuid()) @db.Uuid
-  bio               String?
-  telegramId        String?
-  contributionCount Int            @default(0)
-  status            String         @default("Pending")
-  approvalDate      DateTime?
-  reviewedByAdmin   String?        @db.Uuid
-  userId            String         @unique @db.Uuid
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  user              User           @relation(fields: [userId], references: [id])
-  platformLinks     PlatformLink[]
-  verificationPhrase String       @unique 
+  id                  String         @id @default(uuid()) @db.Uuid
+  bio                 String?
+  telegramId          String?
+  contributionCount   Int            @default(0)
+  status              String         @default("Pending")
+  approvalDate        DateTime?
+  reviewedByAdmin     String?        @db.Uuid
+  userId              String         @unique @db.Uuid
+  totalEarnings       Float          @default(0)
+  totalViews          Int            @default(0)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  user                User           @relation(fields: [userId], references: [id])
+  platformLinks       PlatformLink[]
+  contents            Content[]
+  verificationPhrase  String         @unique
 }
 
 model PlatformLink {
-  id            String      @id @default(uuid()) @db.Uuid
-  platform      String
-  url           String
-  contributorId String      @db.Uuid
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  contributor   Contributor @relation(fields: [contributorId], references: [id])
+  id             String      @id @default(uuid()) @db.Uuid
+  platform       String
+  url            String
+  contributorId  String      @db.Uuid
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  contributor    Contributor @relation(fields: [contributorId], references: [id])
+}
+
+model Content {
+  id                String       @id @default(uuid()) @db.Uuid
+  title             String
+  description       String?
+  contentType       String       // post, video, image, article
+  contentUrl        String?      // For videos/images
+  body              String?      @db.String // For text content
+  contributorId     String       @db.Uuid
+  status            String       @default("Pending") // Pending, Approved, Rejected
+  verifiedBy        String?      @db.Uuid
+  verificationDate  DateTime?
+  rejectionReason   String?
+  views             Int          @default(0)
+  likes             Int          @default(0)
+  shares            Int          @default(0)
+  earnings          Float        @default(0)
+  publishedAt       DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  contributor       Contributor  @relation(fields: [contributorId], references: [id], onDelete: Cascade)
+  verifier          User?        @relation("ContentVerifier", fields: [verifiedBy], references: [id])
+}
+
+model Admin {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @unique @db.Uuid
+  role            String    // moderator, developer, support, admin
+  department      String?
+  permissions     String[]  // Array of permission strings
+  assignedBy      String?   @db.Uuid
+  approvalDate    DateTime?
+  status          String    @default("Active") // Active, Suspended, Inactive
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String?  @db.Uuid // Who performed the action (null for system actions)
+  action      String   // LOGIN, LOGOUT, CREATE_STAFF, DELETE_STAFF, APPROVE_CONTENT, etc.
+  entityType  String?  // User, Staff, Content, Contributor, etc.
+  entityId    String?  @db.Uuid // ID of the affected entity
+  metadata    String?  @db.String // JSON string with additional details
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+}
+
+model SystemSetting {
+  key         String   @id
+  value       String   // JSON string or simple text
+  type        String   // "string", "boolean", "json", "number"
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model Badge {
+  id          String      @id @default(uuid()) @db.Uuid
+  name        String      @unique
+  description String?
+  iconUrl     String      // URL to the badge icon
+  criteria    String?     // JSON rule or text description
+  createdAt   DateTime    @default(now())
+  users       UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  badgeId   String   @db.Uuid
+  awardedAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  badge     Badge    @relation(fields: [badgeId], references: [id])
+
+  @@unique([userId, badgeId])
+}
+
+model GlobalAnnouncement {
+  id        String   @id @default(uuid()) @db.Uuid
+  message   String
+  type      String   @default("info") // info, warning, error, success
+  isActive  Boolean  @default(true)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  createdBy String   @db.Uuid
 }

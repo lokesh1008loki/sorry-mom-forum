@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "adult-forum-24c02",
+    "forum": "adult-forum-24c02"
+  },
+  "targets": {},
+  "etags": {}
+}

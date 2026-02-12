@@ -1,9 +1,34 @@
 import { NextResponse } from 'next/server'
 import { hash } from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
+import { createSession } from '@/lib/auth'
+import { Session } from 'next-auth'
+import { getSystemSetting } from '@/lib/settings'
+
+interface CustomSession extends Session {
+  id: string
+  username: string
+  email: string
+  isContributor: boolean
+  profilePicture?: string | null
+}
 
 export async function POST(request: Request) {
   try {
+    // Check if registration is enabled
+    const enableRegistration = await getSystemSetting('enable_registration')
+    // If setting doesn't exist, default to true (or handle as you see fit)
+    // If explicitly false, block registration
+    if (enableRegistration === false) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'User registration is currently disabled by administrators.'
+        },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
     const { username, email, password, dob, wantContributor, contributorBio, contributorTelegramId, platformLinks, verificationPhrase } = body
 
@@ -20,18 +45,18 @@ export async function POST(request: Request) {
     if (existingUser) {
       if (existingUser.username === username) {
         return NextResponse.json(
-          { 
-            success: false, 
-            message: 'Username is already taken. Please choose a different username.' 
+          {
+            success: false,
+            message: 'Username is already taken. Please choose a different username.'
           },
           { status: 400 }
         )
       }
       if (existingUser.email === email) {
         return NextResponse.json(
-          { 
-            success: false, 
-            message: 'Email is already registered. Please use a different email.' 
+          {
+            success: false,
+            message: 'Email is already registered. Please use a different email.'
           },
           { status: 400 }
         )
@@ -41,9 +66,9 @@ export async function POST(request: Request) {
     // Validate password strength
     if (password.length < 6) {
       return NextResponse.json(
-        { 
-          success: false, 
-          message: 'Password must be at least 6 characters long.' 
+        {
+          success: false,
+          message: 'Password must be at least 6 characters long.'
         },
         { status: 400 }
       )
@@ -54,16 +79,16 @@ export async function POST(request: Request) {
     const today = new Date()
     let age = today.getFullYear() - dobDate.getFullYear()
     const monthDiff = today.getMonth() - dobDate.getMonth()
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dobDate.getDate())) {
       age--
     }
 
     if (age < 18) {
       return NextResponse.json(
-        { 
-          success: false, 
-          message: 'You must be at least 18 years old to register.' 
+        {
+          success: false,
+          message: 'You must be at least 18 years old to register.'
         },
         { status: 400 }
       )
@@ -73,9 +98,9 @@ export async function POST(request: Request) {
     if (wantContributor) {
       if (!contributorBio || contributorBio.length < 10) {
         return NextResponse.json(
-          { 
-            success: false, 
-            message: 'Please provide a detailed bio (at least 10 characters).' 
+          {
+            success: false,
+            message: 'Please provide a detailed bio (at least 10 characters).'
           },
           { status: 400 }
         )
@@ -83,9 +108,9 @@ export async function POST(request: Request) {
 
       if (!contributorTelegramId || contributorTelegramId.length < 3) {
         return NextResponse.json(
-          { 
-            success: false, 
-            message: 'Please provide a valid Telegram ID.' 
+          {
+            success: false,
+            message: 'Please provide a valid Telegram ID.'
           },
           { status: 400 }
         )
@@ -93,9 +118,9 @@ export async function POST(request: Request) {
 
       if (!platformLinks || platformLinks.length === 0) {
         return NextResponse.json(
-          { 
-            success: false, 
-            message: 'Please add at least one platform link.' 
+          {
+            success: false,
+            message: 'Please add at least one platform link.'
           },
           { status: 400 }
         )
@@ -105,9 +130,9 @@ export async function POST(request: Request) {
       for (const link of platformLinks) {
         if (!link.platform || !link.url) {
           return NextResponse.json(
-            { 
-              success: false, 
-              message: 'Please provide both platform and URL for all platform links.' 
+            {
+              success: false,
+              message: 'Please provide both platform and URL for all platform links.'
             },
             { status: 400 }
           )
@@ -118,7 +143,8 @@ export async function POST(request: Request) {
     // Hash the password
     const hashedPassword = await hash(password, 12)
 
-    // Create user
+    // Create user with default profile picture
+    const defaultProfilePicture = `https://avatar.vercel.sh/${username}?size=200`
     const user = await prisma.user.create({
       data: {
         username,
@@ -126,6 +152,7 @@ export async function POST(request: Request) {
         passwordHash: hashedPassword,
         dateOfBirth: new Date(dob),
         isContributor: wantContributor || false,
+        profilePicture: defaultProfilePicture
       }
     })
 
@@ -147,9 +174,19 @@ export async function POST(request: Request) {
       })
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: wantContributor 
+    // Create initial session with profile picture
+    const session = await createSession({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      isContributor: user.isContributor,
+      profilePicture: defaultProfilePicture
+    }) as unknown as CustomSession
+
+    // Set session cookie
+    const response = NextResponse.json({
+      success: true,
+      message: wantContributor
         ? '🎉 Your contributor account has been created successfully! You will be redirected to the login page in 5 seconds.'
         : '🎉 Your account has been created successfully! You will be redirected to the login page in 5 seconds.',
       loginLink: '/login',
@@ -157,16 +194,29 @@ export async function POST(request: Request) {
         id: user.id,
         username: user.username,
         email: user.email,
-        isContributor: user.isContributor
+        isContributor: user.isContributor,
+        profilePicture: defaultProfilePicture
       }
     }, { status: 201 })
+
+    // Add session cookie to response
+    if (session && session.id) {
+      response.cookies.set('session', session.id, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/'
+      })
+    }
+
+    return response
 
   } catch (error: any) {
     console.error('Registration error:', error)
     return NextResponse.json(
-      { 
-        success: false, 
-        message: error.message || 'Failed to register user' 
+      {
+        success: false,
+        message: error.message || 'Failed to register user'
       },
       { status: 500 }
     )
