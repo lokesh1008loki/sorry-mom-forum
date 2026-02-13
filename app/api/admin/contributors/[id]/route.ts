@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
-import { authOptions } from '../../../auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth-options'
 
 export async function PUT(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions)
@@ -43,8 +43,9 @@ export async function PUT(
             updateData.reviewedByAdmin = adminUser.id
         }
 
+        const { id } = await params
         const updatedContributor = await prisma.contributor.update({
-            where: { id: params.id },
+            where: { id },
             data: updateData,
             include: {
                 user: {

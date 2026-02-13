@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
-import { authOptions } from '../../auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth-options'
 import { PrismaClient } from '@prisma/client'
 
 const typedPrisma = prisma as unknown as PrismaClient & {
@@ -32,13 +32,13 @@ export async function PUT(request: Request) {
     }
 
     console.log('Updating user:', session.user.username)
-    
+
     const updatedUser = await typedPrisma.user.update({
-      where: { 
-        username: session.user.username 
+      where: {
+        username: session.user.username
       },
-      data: { 
-        email 
+      data: {
+        email
       },
       select: {
         id: true,
