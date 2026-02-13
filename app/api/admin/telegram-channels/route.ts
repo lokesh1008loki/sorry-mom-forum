@@ -14,6 +14,13 @@ export async function GET() {
         }
 
         const channels = await prisma.telegramChannel.findMany({
+            include: {
+                tags: {
+                    include: {
+                        tag: true
+                    }
+                }
+            },
             orderBy: { priority: 'desc' }
         })
 
@@ -35,7 +42,7 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json()
-        const { name, url, description, priority, iconUrl, isActive } = body
+        const { name, url, description, priority, iconUrl, isActive, tagIds } = body
 
         if (!name || !url) {
             return NextResponse.json(
@@ -51,7 +58,21 @@ export async function POST(request: Request) {
                 description,
                 priority: priority ?? 0,
                 iconUrl,
-                isActive: isActive ?? true
+                isActive: isActive ?? true,
+                tags: tagIds && tagIds.length > 0 ? {
+                    create: tagIds.map((tagId: string) => ({
+                        tag: {
+                            connect: { id: tagId }
+                        }
+                    }))
+                } : undefined
+            },
+            include: {
+                tags: {
+                    include: {
+                        tag: true
+                    }
+                }
             }
         })
 
@@ -73,7 +94,7 @@ export async function PUT(request: Request) {
         }
 
         const body = await request.json()
-        const { id, ...data } = body
+        const { id, tagIds, ...data } = body
 
         if (!id) {
             return NextResponse.json(
@@ -82,9 +103,27 @@ export async function PUT(request: Request) {
             )
         }
 
+        // Update channel and handle tag relationships
         const channel = await prisma.telegramChannel.update({
             where: { id },
-            data
+            data: {
+                ...data,
+                tags: tagIds !== undefined ? {
+                    deleteMany: {},
+                    create: tagIds.map((tagId: string) => ({
+                        tag: {
+                            connect: { id: tagId }
+                        }
+                    }))
+                } : undefined
+            },
+            include: {
+                tags: {
+                    include: {
+                        tag: true
+                    }
+                }
+            }
         })
 
         return NextResponse.json(channel)

@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, Plus, Pencil, Trash2, ExternalLink } from "lucide-react"
+import { Loader2, Plus, Pencil, Trash2, ExternalLink, X, Tag as TagIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -46,7 +46,18 @@ const formSchema = z.object({
     priority: z.coerce.number().int().default(0),
     iconUrl: z.string().optional(),
     isActive: z.boolean().default(true),
+    tagIds: z.array(z.string()).default([]),
 })
+
+type ChannelTag = {
+    id: string
+    name: string
+    color: string
+}
+
+type TelegramChannelTag = {
+    tag: ChannelTag
+}
 
 type TelegramChannel = {
     id: string
@@ -57,13 +68,28 @@ type TelegramChannel = {
     iconUrl?: string
     isActive: boolean
     createdAt: string
+    tags?: TelegramChannelTag[]
 }
+
+// Predefined tags for quick selection
+const PREDEFINED_TAGS = [
+    { name: "hot", color: "#ef4444" },
+    { name: "new", color: "#3b82f6" },
+    { name: "top rated", color: "#eab308" },
+    { name: "trending", color: "#f59e0b" },
+    { name: "exclusive", color: "#a855f7" },
+    { name: "official", color: "#22c55e" },
+]
 
 export default function TelegramChannelsPage() {
     const [channels, setChannels] = useState<TelegramChannel[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [editingChannel, setEditingChannel] = useState<TelegramChannel | null>(null)
+    const [availableTags, setAvailableTags] = useState<ChannelTag[]>([])
+    const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
+    const [customTagName, setCustomTagName] = useState("")
+    const [customTagColor, setCustomTagColor] = useState("#3b82f6")
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -74,24 +100,12 @@ export default function TelegramChannelsPage() {
             priority: 0,
             iconUrl: "",
             isActive: true,
+            tagIds: [],
         },
     })
 
     const fetchChannels = async () => {
         try {
-            // Admin route usually not public, but we can reuse the public GET for listing or create specific admin GET
-            // For now let's assume we can fetch from the public route, or if we need all (including inactive), we might need an admin endpoint
-            // Let's use the public one activeOnly=false or fetch from new admin endpoint if created.
-            // Based on plan, we created POST/PUT/DELETE in admin, maybe GET in public. 
-            // Ideally admin should see all. Let's assume fetching from public route filters active.
-            // Actually, let's create a GET in admin route to fetch ALL.
-            // Wait, I didn't create GET in admin route. Let's add it or just fetch public for now.
-            // Using public route for now, but it filters active. 
-            // I should probably update the admin route to include GET or update public to accept query param active=all (protected).
-            // Given the file I wrote earlier, I only did POST/PUT/DELETE in admin.
-            // Let's use the public route but we might miss inactive ones.
-            // CORRECT FIX: fetching from public route is insufficient if we want to manage inactive.
-            // I will update this logic later if needed/requested. For now, public route fetches active.
             const res = await fetch("/api/admin/telegram-channels")
             if (!res.ok) throw new Error("Failed to fetch channels")
             const data = await res.json()
@@ -104,8 +118,47 @@ export default function TelegramChannelsPage() {
         }
     }
 
+    const fetchTags = async () => {
+        try {
+            const res = await fetch("/api/admin/channel-tags")
+            if (!res.ok) throw new Error("Failed to fetch tags")
+            const data = await res.json()
+            setAvailableTags(data)
+
+            // Create predefined tags if they don't exist
+            for (const predefTag of PREDEFINED_TAGS) {
+                const exists = data.some((t: ChannelTag) => t.name.toLowerCase() === predefTag.name.toLowerCase())
+                if (!exists) {
+                    await createTag(predefTag.name, predefTag.color)
+                }
+            }
+        } catch (error) {
+            console.error(error)
+            toast.error("Failed to load tags")
+        }
+    }
+
+    const createTag = async (name: string, color: string) => {
+        try {
+            const res = await fetch("/api/admin/channel-tags", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, color }),
+            })
+            if (!res.ok) throw new Error("Failed to create tag")
+            const newTag = await res.json()
+            setAvailableTags(prev => [...prev, newTag])
+            return newTag
+        } catch (error) {
+            console.error(error)
+            toast.error("Failed to create tag")
+            return null
+        }
+    }
+
     useEffect(() => {
         fetchChannels()
+        fetchTags()
     }, [])
 
     useEffect(() => {
@@ -117,6 +170,7 @@ export default function TelegramChannelsPage() {
                 priority: editingChannel.priority,
                 iconUrl: editingChannel.iconUrl || "",
                 isActive: editingChannel.isActive,
+                tagIds: editingChannel.tags?.map(t => t.tag.id) || [],
             })
         } else {
             form.reset({
@@ -126,6 +180,7 @@ export default function TelegramChannelsPage() {
                 priority: 0,
                 iconUrl: "",
                 isActive: true,
+                tagIds: [],
             })
         }
     }, [editingChannel, form])
@@ -187,7 +242,7 @@ export default function TelegramChannelsPage() {
             </div>
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{editingChannel ? "Edit Channel" : "Add Channel"}</DialogTitle>
                         <DialogDescription>
@@ -235,6 +290,101 @@ export default function TelegramChannelsPage() {
                                     </FormItem>
                                 )}
                             />
+                            <div className="space-y-4 rounded-lg border p-4 bg-muted/50">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <TagIcon className="h-4 w-4" />
+                                    <span className="font-semibold text-sm">Channel Tags</span>
+                                </div>
+
+                                {/* Selected Tags Display */}
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                    {form.watch("tagIds").map(tagId => {
+                                        const tag = availableTags.find(t => t.id === tagId);
+                                        if (!tag) return null;
+                                        return (
+                                            <Badge
+                                                key={tag.id}
+                                                style={{ backgroundColor: tag.color + '20', color: tag.color, borderColor: tag.color + '50' }}
+                                                className="flex items-center gap-1 border"
+                                            >
+                                                {tag.name}
+                                                <X
+                                                    className="h-3 w-3 cursor-pointer hover:text-red-500"
+                                                    onClick={() => {
+                                                        const current = form.getValues("tagIds");
+                                                        form.setValue("tagIds", current.filter(id => id !== tagId));
+                                                    }}
+                                                />
+                                            </Badge>
+                                        );
+                                    })}
+                                    {form.watch("tagIds").length === 0 && (
+                                        <span className="text-xs text-muted-foreground italic">No tags selected</span>
+                                    )}
+                                </div>
+
+                                {/* Suggested/Existing Tags */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-medium text-muted-foreground uppercase">Suggested Tags</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {availableTags.map(tag => {
+                                            const isSelected = form.watch("tagIds").includes(tag.id);
+                                            return (
+                                                <Button
+                                                    key={tag.id}
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    disabled={isSelected}
+                                                    onClick={() => {
+                                                        const current = form.getValues("tagIds");
+                                                        form.setValue("tagIds", [...current, tag.id]);
+                                                    }}
+                                                    className="h-7 text-xs"
+                                                >
+                                                    {tag.name}
+                                                </Button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Custom Tag Creator */}
+                                <div className="pt-2 border-t mt-2">
+                                    <label className="text-xs font-medium text-muted-foreground uppercase">Create Custom Tag</label>
+                                    <div className="flex gap-2 mt-1">
+                                        <Input
+                                            placeholder="Tag name..."
+                                            className="h-8 text-xs"
+                                            value={customTagName}
+                                            onChange={(e) => setCustomTagName(e.target.value)}
+                                        />
+                                        <Input
+                                            type="color"
+                                            className="h-8 w-12 p-1"
+                                            value={customTagColor}
+                                            onChange={(e) => setCustomTagColor(e.target.value)}
+                                        />
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            className="h-8 px-2"
+                                            onClick={async () => {
+                                                if (!customTagName) return;
+                                                const tag = await createTag(customTagName, customTagColor);
+                                                if (tag) {
+                                                    const current = form.getValues("tagIds");
+                                                    form.setValue("tagIds", [...current, tag.id]);
+                                                    setCustomTagName("");
+                                                }
+                                            }}
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="flex gap-4">
                                 <FormField
                                     control={form.control}
@@ -314,11 +464,22 @@ export default function TelegramChannelsPage() {
                                         </a>
                                     </TableCell>
                                     <TableCell>
-                                        {channel.isActive ? (
-                                            <Badge variant="default" className="bg-green-500">Active</Badge>
-                                        ) : (
-                                            <Badge variant="secondary">Inactive</Badge>
-                                        )}
+                                        <div className="flex flex-wrap gap-1">
+                                            {channel.isActive ? (
+                                                <Badge variant="default" className="bg-green-500">Active</Badge>
+                                            ) : (
+                                                <Badge variant="secondary">Inactive</Badge>
+                                            )}
+                                            {channel.tags?.map(t => (
+                                                <Badge
+                                                    key={t.tag.id}
+                                                    style={{ backgroundColor: t.tag.color + '15', color: t.tag.color, borderColor: t.tag.color + '30' }}
+                                                    className="border text-[10px] px-1 h-5"
+                                                >
+                                                    {t.tag.name}
+                                                </Badge>
+                                            ))}
+                                        </div>
                                     </TableCell>
                                     <TableCell className="text-right space-x-2">
                                         <Button variant="ghost" size="sm" onClick={() => { setEditingChannel(channel); setIsDialogOpen(true); }}>

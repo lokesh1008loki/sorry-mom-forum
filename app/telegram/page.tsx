@@ -6,6 +6,16 @@ import { ExternalLink, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 
+type ChannelTag = {
+  id: string
+  name: string
+  color: string
+}
+
+type TelegramChannelTag = {
+  tag: ChannelTag
+}
+
 type TelegramChannel = {
   id: string
   name: string
@@ -13,6 +23,7 @@ type TelegramChannel = {
   description?: string
   priority: number
   iconUrl?: string
+  tags?: TelegramChannelTag[]
 }
 
 export default function TelegramPage() {
@@ -101,11 +112,22 @@ export default function TelegramPage() {
                         </p>
                       )}
 
-                      {channel.priority > 50 && (
-                        <Badge variant="outline" className="mt-3 border-yellow-500/50 text-yellow-500 bg-yellow-500/10">
-                          Recommended
-                        </Badge>
-                      )}
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        {channel.tags?.map((t) => (
+                          <Badge
+                            key={t.tag.id}
+                            variant="outline"
+                            style={{
+                              backgroundColor: t.tag.color + '15',
+                              color: t.tag.color,
+                              borderColor: t.tag.color + '40'
+                            }}
+                            className="border font-medium text-[11px]"
+                          >
+                            {t.tag.name}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

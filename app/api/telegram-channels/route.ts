@@ -6,6 +6,13 @@ export async function GET() {
     try {
         const channels = await prisma.telegramChannel.findMany({
             where: { isActive: true },
+            include: {
+                tags: {
+                    include: {
+                        tag: true
+                    }
+                }
+            },
             orderBy: { priority: 'desc' }
         })
 

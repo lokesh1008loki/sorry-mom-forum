@@ -17,7 +17,7 @@ export async function PUT(request: Request) {
 
     // Get user with password
     const user = await prisma.user.findUnique({
-      where: { id: session.id },
+      where: { username: session.user.username },
       select: {
         id: true,
         passwordHash: true,
@@ -45,7 +45,7 @@ export async function PUT(request: Request) {
 
     // Update password
     await prisma.user.update({
-      where: { id: session.id },
+      where: { id: user.id },
       data: {
         passwordHash: hashedPassword,
       }
